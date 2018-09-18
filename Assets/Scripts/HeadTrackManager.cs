@@ -9,6 +9,7 @@ public class HeadTrackManager : MonoBehaviour {
 
 	[SerializeField]
 	private GameObject headCenter;
+	private SocketClient socketClient;
 
 	//public Light keylight;
 	public CameraManager camManager;
@@ -34,7 +35,7 @@ public class HeadTrackManager : MonoBehaviour {
 	public void SetIPD( float value ) {
 		IPD = value;
 	}
-		
+
 	public void SetEyeHeight( float value ) {
 		EyeHeight = value;
 	}
@@ -42,6 +43,7 @@ public class HeadTrackManager : MonoBehaviour {
 
 	// Use this for initialization
 	public void Start () {
+		socketClient = SocketClient.Get();
 
 		// first try to get camera acess
 		//yield return RequestCamera ();
@@ -61,7 +63,7 @@ public class HeadTrackManager : MonoBehaviour {
 
 
 		if (config.IsSupported) {
-			
+
 			m_session.RunWithConfig (config);
 
 			UnityARSessionNativeInterface.ARFaceAnchorAddedEvent += FaceAdded;
@@ -79,7 +81,6 @@ public class HeadTrackManager : MonoBehaviour {
 		ARError = error;
 	}
 
-
 	/* // this doesn't help at all
 	IEnumerator RequestCamera() {
 		yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
@@ -89,23 +90,23 @@ public class HeadTrackManager : MonoBehaviour {
 			Debug.Log ("Camera denied");
 		}
 	}
-*/
-
-
-
+	*/
 
 	void FaceAdded (ARFaceAnchor anchorData)
 	{
 		Vector3 pos = UnityARMatrixOps.GetPosition (anchorData.transform);
 		Quaternion rot =  UnityARMatrixOps.GetRotation (anchorData.transform);
 
+        //
+		//socketClient.Send(MessageParser.Serialize("FaceAdded", pos, rot));
+
 		if (camManager.DeviceCamUsed) {
 			headCenter.transform.position = pos; // in device cam viewing mode, don't invert on x because this view is mirrored
 			headCenter.transform.rotation = rot;
 		} else {
 			// invert on x because ARfaceAnchors are inverted on x (to mirror in display)
-			headCenter.transform.position = new Vector3 (-pos.x, pos.y, pos.z); 
-			headCenter.transform.rotation = new Quaternion( -rot.x, rot.y, rot.z, -rot.w); 
+			headCenter.transform.position = new Vector3 (-pos.x, pos.y, pos.z);
+			headCenter.transform.rotation = new Quaternion( -rot.x, rot.y, rot.z, -rot.w);
 		}
 
 		headCenter.SetActive (true);
@@ -117,6 +118,8 @@ public class HeadTrackManager : MonoBehaviour {
 	{
 		Vector3 pos = UnityARMatrixOps.GetPosition (anchorData.transform);
 		Quaternion rot =  UnityARMatrixOps.GetRotation (anchorData.transform);
+
+		socketClient.Send(MessageParser.Serialize("FaceUpdated", pos, rot));
 
 		if (camManager.DeviceCamUsed) {
 			headCenter.transform.position = pos; // in device cam viewing mode, don't invert on x because this view is mirrored
@@ -138,18 +141,18 @@ public class HeadTrackManager : MonoBehaviour {
 			if (currentBlendShapes.ContainsKey ("eyeBlink_R")) {
 				leftEyeClosed = currentBlendShapes ["eyeBlink_R"];
 			}
-				
+
 			//string str = string.Format ("L={0:#.##} R={1:#.##}", leftEyeClosed, rightEyeClosed);
 			//eyeInfoText = str;
-		
-			// these values seem to be in the 0.2 .. 0.7 range.. 
+
+			// these values seem to be in the 0.2 .. 0.7 range..
 			// but sometimes, when viewing the phone low in the visual field, they get very high even while open (eyelids almost close)
 			// we'll use a difference metric and if exceeded we select the most open eye
 
 			if (Mathf.Abs (rightEyeClosed - leftEyeClosed) > 0.2f) {
-				if (rightEyeClosed > leftEyeClosed) 
+				if (rightEyeClosed > leftEyeClosed)
 					openEye = OpenEye.Left;
-				else 
+				else
 					openEye = OpenEye.Right;
 			}
 
@@ -159,22 +162,23 @@ public class HeadTrackManager : MonoBehaviour {
 
 			if (rightEyeClosed < 0.5 && leftEyeClosed > 0.5)
 				openEye = OpenEye.Right;*/
-		} 
+		}
 
 		string str;
 		if (openEye == OpenEye.Left)
 			str = "Left Eye";
-		else 
+		else
 			str = "Right Eye";
 
 		if (autoEye)
 			eyeInfoText = "Auto: " + str;
-		else 
+		else
 			eyeInfoText = str;
 	}
 
 	void FaceRemoved (ARFaceAnchor anchorData)
 	{
+		socketClient.Send("FaceRemoved");
 		headCenter.SetActive (false);
 		string str = "Lost Eye Tracking";
 		eyeInfoText = str;
@@ -190,12 +194,11 @@ public class HeadTrackManager : MonoBehaviour {
 
 	// Update is called once per frame
 	void Update () {
-		
 	}
 
 	void OnDestroy()
 	{
-		
+
 	}
 
 	public void SetLeftEye() {
