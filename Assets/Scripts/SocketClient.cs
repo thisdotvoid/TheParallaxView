@@ -1,28 +1,29 @@
+using UnityEngine;
 using System;
-using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using UnityEngine;
 
 public class SocketClient
 {
-    private SocketClient sInstance;
+    private static SocketClient sInstance;
 
     Thread receiveThread;
     UdpClient client;
+    string server = "127.0.0.1";
     int port = 5065;
 
-    Action<String> onReceiveFunc;
+    Action<string> onReceiveFunc;
 
     SocketClient()
     {
         InitThread();
     }
 
-    SocketClient(int port)
+    SocketClient(string server, int port)
     {
+        this.server = server;
         this.port = port;
         InitThread();
     }
@@ -49,7 +50,7 @@ public class SocketClient
         {
             try
             {
-                IPEndPoint anyIP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), port);
+                IPEndPoint anyIP = new IPEndPoint(IPAddress.Parse(server), port);
                 byte[] data = client.Receive(ref anyIP);
                 string text = Encoding.UTF8.GetString(data);
 
@@ -65,12 +66,12 @@ public class SocketClient
         }
     }
 
-    public void OnReceive(Action<String> func)
+    public void OnReceive(Action<string> func)
     {
         onReceiveFunc = func;
     }
 
-    public void Send(String data)
+    public void Send(string data)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(data);
         client.Send(bytes, bytes.Length);
