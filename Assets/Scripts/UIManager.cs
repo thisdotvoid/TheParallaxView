@@ -132,11 +132,9 @@ public class UIManager : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
-
-		bool deviceIsIphoneX = UnityEngine.iOS.Device.generation == UnityEngine.iOS.DeviceGeneration.iPhoneX;
-		if (!deviceIsIphoneX) {
-			RequireIPhoneXPanel.SetActive (true);
-		}
+        if (!UnityHelpers.IsIPhoneX()) {
+            RequireIPhoneXPanel.SetActive(true);
+        }
 
 		// ugly but I don't wanna figure out how to dynamically create UI buttons right now TODO
 		Button[] SceneButtons = new Button[5];

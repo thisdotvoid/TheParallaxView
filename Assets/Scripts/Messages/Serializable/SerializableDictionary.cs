@@ -12,6 +12,10 @@ public class SerializableDictionary<T1, T2>
         this.value = value;
     }
 
+    public Dictionary<T1, T2> GetValue() {
+        return value;
+    }
+
     public override string ToString()
     {
         Type t1 = typeof(T1);
@@ -28,7 +32,7 @@ public class SerializableDictionary<T1, T2>
         foreach (KeyValuePair<T1, T2> pair in value)
         {
             itemCount--;
-            json.Append("\"" + pair.Key + "\": ");
+            json.Append(" \"" + pair.Key + "\": ");
 
             if (pair.Value is bool) {
                 bool parsed;
@@ -53,12 +57,21 @@ public class SerializableDictionary<T1, T2>
             if (itemCount > 0) {
                 json.Append(",");
             }
-            json.AppendLine();
         }
 
-        json.Insert(0, "{\n");
-        json.Append("}");
+        json.Insert(0, "{");
+        json.Append(" }");
 
         return json.ToString();
+    }
+
+    public static implicit operator SerializableDictionary<T1, T2>(Dictionary<T1, T2> rValue)
+    {
+        return new SerializableDictionary<T1, T2>(rValue);
+    }
+
+    public static implicit operator Dictionary<T1, T2>(SerializableDictionary<T1, T2> rValue)
+    {
+        return rValue.GetValue();
     }
 }

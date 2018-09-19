@@ -1,5 +1,5 @@
 ﻿[System.Serializable]
-public class FaceRemoved
+public class FaceRemovedMessage
 {
     public string type = "FaceRemoved";
 }
