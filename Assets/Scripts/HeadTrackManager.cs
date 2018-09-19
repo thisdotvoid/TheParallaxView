@@ -1,5 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.XR.iOS;
 
@@ -43,14 +43,16 @@ public class HeadTrackManager : MonoBehaviour
 		EyeHeight = value;
 	}
 
-
 	// Use this for initialization
 	public void Start()
 	{
-        ARError = null;
-        Application.targetFrameRate = 60;
+		ARError = null;
+		Application.targetFrameRate = 60;
 
-        if (UnityHelpers.IsIPhoneX()) {
+		if (UnityHelpers.IsIPhoneX()) {
+			// On IPhone
+			socketClient = new SocketClient("10.10.20.41");
+
 			// first try to get camera acess
 			//yield return RequestCamera ();
 
@@ -75,24 +77,29 @@ public class HeadTrackManager : MonoBehaviour
 				Debug.Log("ARKitFaceTrackingConfiguration not supported");
 			}
 		} else {
-			socketClient = SocketClient.Get();
+			// On Desktop
+			var mainThread = SynchronizationContext.Current;
+
+			socketClient = new SocketClient();
 			socketClient.OnReceive((data) => {
 				SocketMessage socketMessage = JsonUtility.FromJson<SocketMessage>(data);
 
-				switch (socketMessage.type) {
-					case "FaceAdded":
-						FaceAddedAction(JsonUtility.FromJson<FaceAddedMessage>(data));
-						break;
-					case "FaceUpdated":
-						FaceUpdatedAction(JsonUtility.FromJson<FaceUpdatedMessage>(data));
-						break;
-					case "FaceRemoved":
-						FaceRemovedAction(JsonUtility.FromJson<FaceRemovedMessage>(data));
-						break;
-					default:
-						Debug.Log("Unknown message type: " + socketMessage.type);
-						break;
-				}
+				mainThread.Post((s) => {
+					switch (socketMessage.type) {
+						case "FaceAdded":
+							FaceAddedAction(JsonUtility.FromJson<FaceAddedMessage>(data));
+							break;
+						case "FaceUpdated":
+							FaceUpdatedAction(JsonUtility.FromJson<FaceUpdatedMessage>(data));
+							break;
+						case "FaceRemoved":
+							FaceRemovedAction(JsonUtility.FromJson<FaceRemovedMessage>(data));
+							break;
+						default:
+							Debug.Log("Unknown message type: " + socketMessage.type);
+							break;
+					}
+				}, null);
 			});
 
 			Debug.Log("Waiting for data on socket");
@@ -121,7 +128,7 @@ public class HeadTrackManager : MonoBehaviour
 	{
 		Vector3 pos = UnityARMatrixOps.GetPosition(anchorData.transform);
 		Quaternion rot = UnityARMatrixOps.GetRotation(anchorData.transform);
-		FaceAddedMessage message = new FaceAddedMessage(pos, rot, anchorData.blendShapes);
+		FaceAddedMessage message = new FaceAddedMessage(pos, rot, new DictionaryOfStringAndFloat(anchorData.blendShapes));
 
 		socketClient.Send(JsonUtility.ToJson(message));
 		FaceAddedAction(message);
@@ -150,7 +157,7 @@ public class HeadTrackManager : MonoBehaviour
 	{
 		Vector3 pos = UnityARMatrixOps.GetPosition(anchorData.transform);
 		Quaternion rot = UnityARMatrixOps.GetRotation(anchorData.transform);
-		FaceUpdatedMessage message = new FaceUpdatedMessage(pos, rot, anchorData.blendShapes);
+		FaceUpdatedMessage message = new FaceUpdatedMessage(pos, rot, new DictionaryOfStringAndFloat(anchorData.blendShapes));
 
 		socketClient.Send(JsonUtility.ToJson(message));
 		FaceUpdatedAction(message);

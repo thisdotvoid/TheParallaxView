@@ -7,75 +7,74 @@ using System.Threading;
 
 public class SocketClient
 {
-    private static SocketClient sInstance;
+	Thread receiveThread;
+	Thread connectThread;
+	UdpClient client;
 
-    Thread receiveThread;
-    UdpClient client;
-    string server = "127.0.0.1";
-    int port = 5065;
+	string localAddress = "0.0.0.0";
+	string remoteAddress;
+	int port = 5065;
 
-    Action<string> onReceiveFunc;
+	Action<string> onReceiveFunc;
 
-    SocketClient()
-    {
-        InitThread();
-    }
+	public SocketClient()
+	{
+		InitThread();
+	}
 
-    SocketClient(string server, int port)
-    {
-        this.server = server;
-        this.port = port;
-        InitThread();
-    }
+	public SocketClient(string remote)
+	{
+		this.remoteAddress = remote;
+		InitThread();
+	}
 
-    public static SocketClient Get() {
-        if (sInstance == null) {
-            sInstance = new SocketClient();
-        }
+	private void InitThread()
+	{
+		receiveThread = new Thread(new ThreadStart(InitSocket));
+		receiveThread.IsBackground = true;
+		receiveThread.Start();
+	}
 
-        return sInstance;
-    }
+	private void InitSocket() {
+		client = new UdpClient(port);
+		IPEndPoint anyIP = new IPEndPoint(IPAddress.Any, 0);
 
-    private void InitThread()
-    {
-        receiveThread = new Thread(new ThreadStart(ReceiveData));
-        receiveThread.IsBackground = true;
-        receiveThread.Start();
-    }
+		if (remoteAddress != null) {
+			IPEndPoint remoteIP = new IPEndPoint(IPAddress.Parse(remoteAddress), port);
+			client.Connect(remoteIP);
+		}
 
-    private void ReceiveData()
-    {
-        client = new UdpClient(port);
-        while (true)
-        {
-            try
-            {
-                IPEndPoint anyIP = new IPEndPoint(IPAddress.Parse(server), port);
-                byte[] data = client.Receive(ref anyIP);
-                string text = Encoding.UTF8.GetString(data);
+		while (true) {
+			try {
+				byte[] data = client.Receive(ref anyIP);
+				string text = Encoding.UTF8.GetString(data);
 
-                if (onReceiveFunc != null)
-                {
-                    onReceiveFunc(text);
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.Log(e.ToString());
-            }
-        }
-    }
+				if (onReceiveFunc != null) {
+					onReceiveFunc(text);
+				}
+			} catch (Exception e) {
+				Debug.Log(e.ToString());
+			}
+		}
+	}
 
-    public void OnReceive(Action<string> func)
-    {
-        onReceiveFunc = func;
-    }
+	public void OnReceive(Action<string> func)
+	{
+		onReceiveFunc = func;
+	}
 
-    public void Send(string data)
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(data);
-        client.Send(bytes, bytes.Length);
-    }
-
+	public void Send(string data)
+	{
+		if (client != null) {
+			try {
+				byte[] bytes = Encoding.UTF8.GetBytes(data);
+				client.Send(bytes, bytes.Length);
+			} catch (Exception e) {
+				Debug.Log(e.ToString());
+			}
+		} else {
+			Debug.Log("Socket not initialized yet");
+		}
+	}
 
 }

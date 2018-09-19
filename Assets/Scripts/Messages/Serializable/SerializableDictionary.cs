@@ -1,77 +1,57 @@
-﻿using System;
+﻿using UnityEngine;
 using System.Collections.Generic;
-using System.Text;
 
 [System.Serializable]
-public class SerializableDictionary<T1, T2>
+public class SerializableDictionary<TKey, TValue> : ISerializationCallbackReceiver
 {
-    private Dictionary<T1, T2> value;
+    private Dictionary<TKey, TValue> dict;
 
-    public SerializableDictionary(Dictionary<T1, T2> value)
+    [SerializeField]
+    private List<TKey> keys = new List<TKey>();
+
+    [SerializeField]
+    private List<TValue> values = new List<TValue>();
+
+    public SerializableDictionary(Dictionary<TKey, TValue> dict)
     {
-        this.value = value;
+        this.dict = dict;
     }
 
-    public Dictionary<T1, T2> GetValue() {
-        return value;
+    public Dictionary<TKey, TValue> GetDictionary()
+    {
+        return dict;
     }
 
-    public override string ToString()
+    public void OnBeforeSerialize()
     {
-        Type t1 = typeof(T1);
-        Type t2 = typeof(T2);
+        keys.Clear();
+        values.Clear();
 
-        if (t1 != typeof(String) || !t2.IsPrimitive)
+        foreach (KeyValuePair<TKey, TValue> pair in dict)
         {
-            return "{}";
+            keys.Add(pair.Key);
+            values.Add(pair.Value);
         }
-
-        StringBuilder json = new StringBuilder();
-
-        int itemCount = value.Count;
-        foreach (KeyValuePair<T1, T2> pair in value)
-        {
-            itemCount--;
-            json.Append(" \"" + pair.Key + "\": ");
-
-            if (pair.Value is bool) {
-                bool parsed;
-                bool.TryParse(pair.Value.ToString(), out parsed);
-                json.Append(parsed);
-            } else if (pair.Value is int) {
-                int parsed;
-                int.TryParse(pair.Value.ToString(), out parsed);
-                json.Append(parsed);
-            } else if (pair.Value is float) {
-                float parsed;
-                float.TryParse(pair.Value.ToString(), out parsed);
-                json.Append(parsed);
-            } else if (pair.Value is double) {
-                double parsed;
-                double.TryParse(pair.Value.ToString(), out parsed);
-                json.Append(parsed);
-            } else if (pair.Value is string) {
-                json.Append("\"" + pair.Value + "\": ");
-            }
-
-            if (itemCount > 0) {
-                json.Append(",");
-            }
-        }
-
-        json.Insert(0, "{");
-        json.Append(" }");
-
-        return json.ToString();
     }
 
-    public static implicit operator SerializableDictionary<T1, T2>(Dictionary<T1, T2> rValue)
+    public void OnAfterDeserialize()
     {
-        return new SerializableDictionary<T1, T2>(rValue);
+        dict.Clear();
+
+        if (keys.Count != values.Count)
+            throw new System.Exception(string.Format("there are {0} keys and {1} values after deserialization. Make sure that both key and value types are serializable."));
+
+        for (int i = 0; i < keys.Count; i++)
+            dict.Add(keys[i], values[i]);
     }
 
-    public static implicit operator Dictionary<T1, T2>(SerializableDictionary<T1, T2> rValue)
+    public static implicit operator SerializableDictionary<TKey, TValue>(Dictionary<TKey, TValue> rValue)
     {
-        return rValue.GetValue();
+        return new SerializableDictionary<TKey, TValue>(rValue);
+    }
+
+    public static implicit operator Dictionary<TKey, TValue>(SerializableDictionary<TKey, TValue> rValue)
+    {
+        return rValue.GetDictionary();
     }
 }
