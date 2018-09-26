@@ -65,7 +65,6 @@ public class HeadTrackManager : MonoBehaviour
 
 			config.enableLightEstimation = true;
 
-			// TODO: Find out if device is supported and 
 			if (config.IsSupported) {
 				m_session.RunWithConfig(config);
 
@@ -82,6 +81,7 @@ public class HeadTrackManager : MonoBehaviour
 
 			socketClient = new SocketClient();
 			socketClient.OnReceive((data) => {
+				Debug.Log(data);
 				SocketMessage socketMessage = JsonUtility.FromJson<SocketMessage>(data);
 
 				mainThread.Post((s) => {
@@ -124,6 +124,21 @@ public class HeadTrackManager : MonoBehaviour
     }
     */
 
+    void UpdateHeadPosition(Vector3 pos, Quaternion rot) {
+		if (camManager.DeviceCamUsed) {
+			headCenter.transform.position = pos; // in device cam viewing mode, don't invert on x because this view is mirrored
+            if (null != rot) {
+				headCenter.transform.rotation = rot;
+            }
+		} else {
+			// invert on x because ARfaceAnchors are inverted on x (to mirror in display)
+			headCenter.transform.position = new Vector3(-pos.x, pos.y, pos.z);
+            if (null != rot) {
+				headCenter.transform.rotation = new Quaternion(-rot.x, rot.y, rot.z, -rot.w);
+            }
+		}
+	}
+
 	void FaceAdded(ARFaceAnchor anchorData)
 	{
 		Vector3 pos = UnityARMatrixOps.GetPosition(anchorData.transform);
@@ -136,21 +151,9 @@ public class HeadTrackManager : MonoBehaviour
 
 	void FaceAddedAction(FaceAddedMessage message)
 	{
-		Vector3 pos = message.position;
-		Quaternion rot = message.rotation;
-
-		if (camManager.DeviceCamUsed) {
-			headCenter.transform.position = pos; // in device cam viewing mode, don't invert on x because this view is mirrored
-			headCenter.transform.rotation = rot;
-		} else {
-			// invert on x because ARfaceAnchors are inverted on x (to mirror in display)
-			headCenter.transform.position = new Vector3(-pos.x, pos.y, pos.z);
-			headCenter.transform.rotation = new Quaternion(-rot.x, rot.y, rot.z, -rot.w);
-		}
-
+        UpdateHeadPosition(message.position, message.rotation);
 		headCenter.SetActive(true);
-
-		currentBlendShapes = message.blendShapes;
+		//currentBlendShapes = message.blendShapes;
 	}
 
 	void FaceUpdated(ARFaceAnchor anchorData)
@@ -165,21 +168,10 @@ public class HeadTrackManager : MonoBehaviour
 
 	void FaceUpdatedAction(FaceUpdatedMessage message)
 	{
-		Vector3 pos = message.position;
-		Quaternion rot = message.rotation;
+		UpdateHeadPosition(message.position, message.rotation);
+		//currentBlendShapes = message.blendShapes;
 
-		if (camManager.DeviceCamUsed) {
-			headCenter.transform.position = pos; // in device cam viewing mode, don't invert on x because this view is mirrored
-			headCenter.transform.rotation = rot;
-		} else {
-			// invert on x because ARfaceAnchors are inverted on x (to mirror in display)
-			headCenter.transform.position = new Vector3(-pos.x, pos.y, pos.z);
-			headCenter.transform.rotation = new Quaternion(-rot.x, rot.y, rot.z, -rot.w);
-		}
-
-		currentBlendShapes = message.blendShapes;
-
-		if (autoEye) {
+		if (autoEye && null != currentBlendShapes) {
 
 			if (currentBlendShapes.ContainsKey("eyeBlink_L")) { // of course, eyeBlink_L refers to the RIGHT eye! (mirrored geometry)
 				rightEyeClosed = currentBlendShapes["eyeBlink_L"];
@@ -253,7 +245,7 @@ public class HeadTrackManager : MonoBehaviour
 
 	void OnDestroy()
 	{
-
+        socketClient.Close();
 	}
 
 	public void SetLeftEye()

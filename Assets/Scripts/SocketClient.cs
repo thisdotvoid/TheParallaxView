@@ -77,4 +77,8 @@ public class SocketClient
 		}
 	}
 
+    public void Close() {
+        client.Close();
+    }
+
 }
